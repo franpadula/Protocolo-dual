@@ -10,12 +10,12 @@
     <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- PeerJS para conexión directa P2P sin base de datos -->
+    <!-- PeerJS para conexión directa P2P -->
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
 
     <style>
         body { background-color: #050505; color: #00ff00; font-family: 'Courier New', Courier, monospace; }
-        .cyber-input { background: #111; border: 1px solid #00ff00; color: #00ff00; padding: 0.5rem; outline: none; width: 100%; }
+        .cyber-input { background: #111; border: 1px solid #00ff00; color: #00ff00; padding: 0.5rem; outline: none; width: 100%; text-transform: uppercase; }
         .cyber-input:focus { box-shadow: 0 0 10px #00ff00; }
         .cyber-btn { background: #004400; border: 1px solid #00ff00; color: #00ff00; padding: 0.5rem 1rem; cursor: pointer; font-weight: bold; transition: all 0.2s; }
         .cyber-btn:hover:not(:disabled) { background: #00ff00; color: #000; box-shadow: 0 0 15px #00ff00; }
@@ -30,59 +30,119 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
+        // Generador de códigos cortos (ej: A4X9)
+        const generateShortId = () => {
+            return Math.random().toString(36).substring(2, 6).toUpperCase();
+        };
+
         function App() {
             const [peerId, setPeerId] = useState("");
             const [targetId, setTargetId] = useState("");
-            const [role, setRole] = useState(null); // 'host' (Agente) o 'client' (Analista)
+            const [role, setRole] = useState(null); 
             const [connected, setConnected] = useState(false);
+            const [errorMsg, setErrorMsg] = useState("");
+            
             const [gameState, setGameState] = useState({ level: 1, agentData: "", analystData: "" });
             const [inputVal, setInputVal] = useState("");
             
+            // Usamos refs para evitar problemas de "stale closures" con PeerJS
             const peerRef = useRef(null);
             const connRef = useRef(null);
+            const gameStateRef = useRef(gameState);
 
-            // Inicializar Peer (Host)
+            // Mantener la ref actualizada siempre que el estado cambie
+            useEffect(() => {
+                gameStateRef.current = gameState;
+                
+                // Comprobación de victoria en el nivel 3
+                if (gameState.level === 3 && gameState.agentData === "ready" && gameState.analystData === "ready") {
+                    setTimeout(() => updateStateAndSync({ level: 4 }), 500);
+                }
+            }, [gameState]);
+
+            // --- LÓGICA DE RED ---
+
+            // JUGADOR 1 (Agente)
             const createRoom = () => {
-                const peer = new Peer();
+                const shortId = "NEO-" + generateShortId();
+                const peer = new Peer(shortId);
+                
                 peer.on('open', (id) => {
                     setPeerId(id);
                     setRole('agente');
+                    setErrorMsg("");
                 });
                 
                 peer.on('connection', (conn) => {
                     connRef.current = conn;
-                    setupConnection(conn);
+                    
+                    conn.on('open', () => {
+                        setConnected(true);
+                        setErrorMsg("");
+                        // El Host envía el estado inicial al conectarse
+                        conn.send(gameStateRef.current);
+                    });
+                    
+                    conn.on('data', (data) => {
+                        setGameState(data);
+                    });
+
+                    conn.on('close', () => {
+                        setConnected(false);
+                        setErrorMsg("Conexión perdida con el Analista.");
+                    });
                 });
+
+                peer.on('error', (err) => {
+                    setErrorMsg("Error de red: " + err.type);
+                });
+
                 peerRef.current = peer;
             };
 
-            // Unirse a sala (Client)
+            // JUGADOR 2 (Analista)
             const joinRoom = () => {
                 if (!targetId) return;
+                
+                const formattedTargetId = targetId.trim().toUpperCase();
+                // Si el usuario olvidó poner "NEO-", se lo añadimos
+                const finalTargetId = formattedTargetId.startsWith("NEO-") ? formattedTargetId : "NEO-" + formattedTargetId;
+
                 const peer = new Peer();
+                
                 peer.on('open', () => {
                     setRole('analista');
-                    const conn = peer.connect(targetId);
+                    setErrorMsg("");
+                    
+                    const conn = peer.connect(finalTargetId, { reliable: true });
                     connRef.current = conn;
-                    setupConnection(conn);
+                    
+                    conn.on('open', () => {
+                        setConnected(true);
+                        setErrorMsg("");
+                    });
+                    
+                    conn.on('data', (data) => {
+                        setGameState(data);
+                    });
+
+                    conn.on('close', () => {
+                        setConnected(false);
+                        setErrorMsg("Conexión perdida con el Agente.");
+                    });
                 });
+
+                peer.on('error', (err) => {
+                    setErrorMsg("Error: Verifica el código de acceso. (" + err.type + ")");
+                    setRole(null);
+                });
+
                 peerRef.current = peer;
             };
 
-            const setupConnection = (conn) => {
-                conn.on('open', () => {
-                    setConnected(true);
-                    // Sincronizar estado inicial al conectar
-                    conn.send(gameState);
-                });
-                conn.on('data', (data) => {
-                    setGameState(data);
-                });
-                conn.on('close', () => setConnected(false));
-            };
-
-            const updateState = (updates) => {
-                const newState = { ...gameState, ...updates };
+            // Función unificada para actualizar estado local y mandarlo por la red
+            const updateStateAndSync = (updates) => {
+                const newState = { ...gameStateRef.current, ...updates };
                 setGameState(newState);
                 if (connRef.current && connRef.current.open) {
                     connRef.current.send(newState);
@@ -92,45 +152,54 @@
             // --- LÓGICA DE NIVELES ---
             const checkLevel1 = () => {
                 if (role === 'agente' && inputVal.trim() === "192.168.10.45") {
-                    updateState({ level: 2 });
+                    updateStateAndSync({ level: 2 });
                     setInputVal("");
+                } else if (role === 'agente') {
+                    setErrorMsg("IP Incorrecta");
+                    setTimeout(() => setErrorMsg(""), 2000);
                 }
             };
 
             const checkLevel2 = () => {
                 if (role === 'analista' && inputVal.trim().toUpperCase() === "TRX-8821") {
-                    updateState({ level: 3 });
+                    updateStateAndSync({ level: 3 });
                     setInputVal("");
+                } else if (role === 'analista') {
+                    setErrorMsg("Firma de Hardware no reconocida");
+                    setTimeout(() => setErrorMsg(""), 2000);
                 }
             };
 
             const activateSync = () => {
-                if (role === 'agente') updateState({ agentData: "ready" });
-                if (role === 'analista') updateState({ analystData: "ready" });
+                if (role === 'agente') updateStateAndSync({ agentData: "ready" });
+                if (role === 'analista') updateStateAndSync({ analystData: "ready" });
             };
-
-            useEffect(() => {
-                if (gameState.level === 3 && gameState.agentData === "ready" && gameState.analystData === "ready") {
-                    updateState({ level: 4 });
-                }
-            }, [gameState]);
 
 
             // --- VISTAS ---
+
             if (!role) {
                 return (
                     <div className="max-w-md w-full bg-black p-8 border border-green-500 shadow-[0_0_15px_#00ff00]">
-                        <h1 className="text-2xl font-bold mb-6 text-center border-b border-green-800 pb-2">CONEXIÓN P2P</h1>
+                        <h1 className="text-2xl font-bold mb-6 text-center border-b border-green-800 pb-2">SISTEMA SOC: NEO-TERRASSA</h1>
                         
+                        {errorMsg && <div className="mb-4 p-2 bg-red-900 border border-red-500 text-red-200 text-sm text-center">{errorMsg}</div>}
+
                         <div className="mb-8 p-4 border border-gray-700 bg-gray-900">
-                            <h3 className="mb-2 font-bold text-blue-400">JUGADOR 1 (Agente de Campo)</h3>
-                            <button className="cyber-btn w-full text-sm" onClick={createRoom}>Crear Sesión Segura</button>
+                            <h3 className="mb-2 font-bold text-blue-400">AGENTE DE CAMPO (Host)</h3>
+                            <button className="cyber-btn w-full text-sm" onClick={createRoom}>Iniciar Operación y Crear Código</button>
                         </div>
 
                         <div className="p-4 border border-gray-700 bg-gray-900">
-                            <h3 className="mb-2 font-bold text-yellow-400">JUGADOR 2 (Analista SOC)</h3>
-                            <input type="text" className="cyber-input mb-4" value={targetId} onChange={(e) => setTargetId(e.target.value)} placeholder="Introduce el ID del Agente..." />
-                            <button className="cyber-btn w-full text-sm" onClick={joinRoom} disabled={!targetId}>Conectar a Sesión</button>
+                            <h3 className="mb-2 font-bold text-yellow-400">ANALISTA SOC (Cliente)</h3>
+                            <input 
+                                type="text" 
+                                className="cyber-input mb-4 text-center font-bold text-lg uppercase" 
+                                value={targetId} 
+                                onChange={(e) => setTargetId(e.target.value)} 
+                                placeholder="EJ: A7X2" 
+                            />
+                            <button className="cyber-btn w-full text-sm" onClick={joinRoom} disabled={!targetId}>Conectar al Túnel</button>
                         </div>
                     </div>
                 );
@@ -139,29 +208,42 @@
             if (role === 'agente' && !connected) {
                 return (
                     <div className="max-w-md w-full bg-black p-8 border border-green-500 text-center">
-                        <h2 className="text-xl mb-4 font-bold">SESIÓN CREADA</h2>
-                        <p className="text-gray-400 mb-2">Envía este ID de conexión al Analista SOC:</p>
-                        <div className="bg-gray-900 p-4 border border-green-500 mb-6 font-bold text-xl select-all">
-                            {peerId || "Generando ID..."}
+                        <h2 className="text-xl mb-4 font-bold">TÚNEL ESTABLECIDO</h2>
+                        <p className="text-gray-400 mb-2">Dicta este código de acceso al Analista:</p>
+                        <div className="bg-gray-900 p-4 border border-green-500 mb-6 font-bold text-3xl tracking-widest text-yellow-400">
+                            {peerId.replace('NEO-', '')}
                         </div>
-                        <p className="text-sm text-yellow-500 animate-pulse">Esperando conexión entrante...</p>
+                        <p className="text-sm text-green-500 animate-pulse">Esperando conexión entrante de Ainoa...</p>
                     </div>
                 );
             }
 
             if (role === 'analista' && !connected) {
-                return <div className="max-w-md w-full bg-black p-8 border border-green-500 text-center animate-pulse">Estableciendo túnel P2P...</div>;
+                return (
+                    <div className="max-w-md w-full bg-black p-8 border border-green-500 text-center">
+                        {errorMsg ? (
+                            <div>
+                                <p className="text-red-500 mb-4">{errorMsg}</p>
+                                <button className="cyber-btn" onClick={() => setRole(null)}>Volver</button>
+                            </div>
+                        ) : (
+                            <p className="animate-pulse text-yellow-400 font-bold">Negociando claves de cifrado (Estableciendo túnel)...</p>
+                        )}
+                    </div>
+                );
             }
 
             // PANTALLA PRINCIPAL DEL JUEGO
             return (
                 <div className="max-w-2xl w-full bg-black p-8 border border-green-500 shadow-[0_0_20px_#004400]">
                     <div className="flex justify-between items-center mb-6 border-b border-green-800 pb-2 text-sm md:text-base">
-                        <span className="font-bold text-green-500">ESTADO: CONECTADO</span>
+                        <span className="font-bold text-green-500 animate-pulse">● ENLACE SEGURO ACTIVO</span>
                         <span className="font-bold text-blue-400">
                             ROL: {role === 'agente' ? 'OPERATIVO DE CAMPO' : 'ANALISTA SOC TIER 2'}
                         </span>
                     </div>
+
+                    {errorMsg && <div className="mb-4 p-2 bg-red-900 border border-red-500 text-red-200 text-sm text-center">{errorMsg}</div>}
 
                     {gameState.level === 1 && (
                         <div>
@@ -169,14 +251,14 @@
                             {role === 'analista' ? (
                                 <div className="bg-gray-900 p-4 border border-gray-700">
                                     <p className="text-red-400 mb-2">[ALERTA SIEM] - Elevación de privilegios detectada.</p>
-                                    <p>Has aislado el origen de la anomalía en los logs de red.</p>
+                                    <p>Has aislado el origen de la anomalía en los logs del cortafuegos perimetral.</p>
                                     <p className="font-bold mt-4 text-yellow-300">IP DE ORIGEN A BLOQUEAR: 192.168.10.45</p>
-                                    <p className="mt-4 text-sm text-gray-400">Comunícate con el Agente de Campo para que introduzca esta IP en la terminal física.</p>
+                                    <p className="mt-4 text-sm text-gray-400">Comunícate por voz con el Agente de Campo para que introduzca esta IPv4 en la terminal física de contención.</p>
                                 </div>
                             ) : (
                                 <div className="bg-gray-900 p-4 border border-gray-700">
-                                    <p>Estás frente a la terminal principal. El Analista tiene la IP maliciosa en su monitor.</p>
-                                    <p className="mb-4">Pídele las coordenadas lógicas para aplicar el bloqueo.</p>
+                                    <p>Estás frente a la terminal principal. El Analista tiene la IP maliciosa bloqueada en su monitor.</p>
+                                    <p className="mb-4">Pídele las coordenadas lógicas (IPv4) para aplicar el bloqueo en el nodo local.</p>
                                     <input type="text" className="cyber-input mb-4" value={inputVal} onChange={(e) => setInputVal(e.target.value)} placeholder="Introduce IPv4..." />
                                     <button className="cyber-btn w-full" onClick={checkLevel1}>Ejecutar Bloqueo Manual</button>
                                 </div>
@@ -189,16 +271,16 @@
                             <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 2: INTERCEPTACIÓN DE HARDWARE</h2>
                             {role === 'agente' ? (
                                 <div className="bg-gray-900 p-4 border border-gray-700">
-                                    <p>Has encontrado un módulo de hardware sospechoso enganchado a un repetidor físico.</p>
+                                    <p>Has encontrado un módulo de hardware sospechoso (probablemente un skimmer de red) enganchado a un repetidor físico.</p>
                                     <p className="font-bold mt-4 text-yellow-300">NÚMERO DE SERIE GRABADO: TRX-8821</p>
-                                    <p className="mt-4 text-sm text-gray-400">Transmite esta firma al Analista para que pueda afinar la regla en el SIEM.</p>
+                                    <p className="mt-4 text-sm text-gray-400">Transmite esta firma al Analista para que pueda crear un caso de uso (use case) en el SIEM y aislar el dispositivo.</p>
                                 </div>
                             ) : (
                                 <div className="bg-gray-900 p-4 border border-gray-700">
-                                    <p>Necesitas afinar el caso de uso en el SIEM, pero te falta la firma física del dispositivo.</p>
-                                    <p className="mb-4">El Agente de Campo ha localizado el módulo. Pregúntale el número de serie.</p>
+                                    <p>Necesitas afinar el caso de uso en el SIEM para detectar el dispositivo de red rebelde, pero te falta la firma física.</p>
+                                    <p className="mb-4">El Agente de Campo ha localizado el módulo. Pregúntale el número de serie (N/S).</p>
                                     <input type="text" className="cyber-input mb-4" value={inputVal} onChange={(e) => setInputVal(e.target.value)} placeholder="Introduce N/S del hardware..." />
-                                    <button className="cyber-btn w-full" onClick={checkLevel2}>Afinar Regla</button>
+                                    <button className="cyber-btn w-full" onClick={checkLevel2}>Afinar Regla de Detección</button>
                                 </div>
                             )}
                         </div>
@@ -208,14 +290,14 @@
                         <div>
                             <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 3: PURGA DE SISTEMA DUAL</h2>
                             <div className="bg-gray-900 p-4 border border-gray-700 text-center">
-                                <p className="mb-4">Para purgar el sistema, ambos operativos deben enviar la clave simultáneamente.</p>
-                                <p className="text-sm text-gray-400 mb-6">Sincronicen sus relojes y pulsen el botón.</p>
+                                <p className="mb-4">Para purgar el sistema de manera segura y evitar un volcado de memoria, ambos operativos deben autorizar la operación a la vez.</p>
+                                <p className="text-sm text-gray-400 mb-6">Sincronicen sus acciones e inicien la purga.</p>
                                 
                                 <button 
                                     className={`cyber-btn w-full py-4 text-xl ${((role === 'agente' && gameState.agentData === 'ready') || (role === 'analista' && gameState.analystData === 'ready')) ? 'bg-green-600 text-black border-green-600' : ''}`}
                                     onClick={activateSync}
                                 >
-                                    {((role === 'agente' && gameState.agentData === 'ready') || (role === 'analista' && gameState.analystData === 'ready')) ? 'AUTORIZACIÓN ENVIADA...' : 'AUTORIZAR PURGA'}
+                                    {((role === 'agente' && gameState.agentData === 'ready') || (role === 'analista' && gameState.analystData === 'ready')) ? 'AUTORIZACIÓN ENVIADA...' : 'AUTORIZAR PURGA DUAL'}
                                 </button>
 
                                 <div className="mt-6 flex justify-between px-2 md:px-8 text-sm font-bold">
@@ -232,9 +314,9 @@
 
                     {gameState.level === 4 && (
                         <div className="text-center py-8">
-                            <h2 className="text-3xl font-bold text-blue-400 mb-4 animate-pulse">AMENAZA NEUTRALIZADA</h2>
-                            <p className="text-xl mb-2">Red asegurada.</p>
-                            <button className="cyber-btn mt-8" onClick={() => updateState({ level: 1, agentData: "", analystData: "" })}>
+                            <h2 className="text-4xl font-bold text-blue-400 mb-4 animate-pulse">AMENAZA NEUTRALIZADA</h2>
+                            <p className="text-xl mb-2">Red de Neo-Terrassa asegurada y limpia.</p>
+                            <button className="cyber-btn mt-8" onClick={() => updateStateAndSync({ level: 1, agentData: "", analystData: "" })}>
                                 Reiniciar Simulación
                             </button>
                         </div>
