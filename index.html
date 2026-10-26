@@ -9,8 +9,8 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     
-    <!-- Babel 7 para soporte total de ES6+ y JSX en navegador -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Volvemos a Babel 6 (el que funcionaba en la versión Cyberpunk) -->
+    <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -127,12 +127,6 @@
         }
         .input-noir:focus { border-color: var(--blood); }
 
-        .film-grain {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E');
-            pointer-events: none; z-index: 50;
-        }
-
         .blood-stain {
             position: absolute;
             background: var(--blood);
@@ -143,16 +137,29 @@
             mix-blend-mode: multiply;
         }
     </style>
+    
+    <!-- Capturador de errores de ejecución -->
+    <script>
+        window.addEventListener('error', function(e) {
+            var errDiv = document.getElementById('error-log');
+            if (errDiv) {
+                errDiv.style.display = 'block';
+                errDiv.innerHTML += '<p><strong>Error:</strong> ' + e.message + ' en ' + e.filename + ':' + e.lineno + '</p>';
+            }
+        });
+    </script>
 </head>
 <body>
-    <div class="film-grain"></div>
+    <div id="error-log" style="display:none; background:#8a0303; color:white; padding:20px; font-family:monospace; position:absolute; top:0; left:0; width:100%; z-index:9999;"></div>
+    
     <div id="root" class="min-h-screen relative z-10 flex p-4 md:p-8"></div>
 
-    <!-- El atributo data-presets garantiza que el navegador parsee el código sin quedarse en blanco -->
-    <script type="text/babel" data-presets="react,env">
+    <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const generateShortId = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+        const generateShortId = () => {
+            return Math.random().toString(36).substring(2, 6).toUpperCase();
+        };
 
         function App() {
             const [peerId, setPeerId] = useState("");
@@ -176,12 +183,15 @@
             useEffect(() => {
                 gameStateRef.current = gameState;
                 if (gameState.chapter === 3 && gameState.detReady && gameState.archReady) {
-                    setTimeout(() => updateStateAndSync({ chapter: 4 }), 1000);
+                    setTimeout(() => {
+                        updateStateAndSync({ chapter: 4 });
+                    }, 1000);
                 }
             }, [gameState]);
 
+            // Función pura de ES5 para evitar crasheos de propagación
             const updateStateAndSync = (updates) => {
-                const newState = { ...gameStateRef.current, ...updates };
+                const newState = Object.assign({}, gameStateRef.current, updates);
                 setGameState(newState);
                 if (connRef.current && connRef.current.open) {
                     connRef.current.send(newState);
@@ -202,31 +212,65 @@
                 const shortId = "CASO-" + generateShortId();
                 const peer = new Peer(shortId);
                 
-                peer.on('open', (id) => { setPeerId(id); setRole('detective'); setErrorMsg(""); });
+                peer.on('open', (id) => { 
+                    setPeerId(id); 
+                    setRole('detective'); 
+                    setErrorMsg(""); 
+                });
+                
                 peer.on('connection', (conn) => {
                     connRef.current = conn;
-                    conn.on('open', () => { setConnected(true); conn.send(gameStateRef.current); });
-                    conn.on('data', setGameState);
-                    conn.on('close', () => { setConnected(false); setErrorMsg("La otra línea ha colgado."); });
+                    conn.on('open', () => { 
+                        setConnected(true); 
+                        conn.send(gameStateRef.current); 
+                    });
+                    conn.on('data', (data) => {
+                        setGameState(data);
+                    });
+                    conn.on('close', () => { 
+                        setConnected(false); 
+                        setErrorMsg("La otra línea ha colgado."); 
+                    });
                 });
-                peer.on('error', (err) => setErrorMsg("Error de centralita: " + err.type));
+                
+                peer.on('error', (err) => {
+                    setErrorMsg("Error de centralita: " + err.type);
+                });
+                
                 peerRef.current = peer;
             };
 
             const joinRoom = () => {
                 if (!targetId) return;
-                const finalId = targetId.trim().toUpperCase().startsWith("CASO-") ? targetId.trim().toUpperCase() : "CASO-" + targetId.trim().toUpperCase();
+                let finalId = targetId.trim().toUpperCase();
+                if (finalId.indexOf("CASO-") !== 0) {
+                    finalId = "CASO-" + finalId;
+                }
 
                 const peer = new Peer();
                 peer.on('open', () => {
                     setRole('archivo');
                     const conn = peer.connect(finalId, { reliable: true });
                     connRef.current = conn;
-                    conn.on('open', () => setConnected(true));
-                    conn.on('data', setGameState);
-                    conn.on('close', () => setConnected(false));
+                    
+                    conn.on('open', () => {
+                        setConnected(true);
+                    });
+                    
+                    conn.on('data', (data) => {
+                        setGameState(data);
+                    });
+                    
+                    conn.on('close', () => {
+                        setConnected(false);
+                    });
                 });
-                peer.on('error', (err) => { setErrorMsg("Expediente no encontrado. Revisa el código."); setRole(null); });
+                
+                peer.on('error', (err) => { 
+                    setErrorMsg("Expediente no encontrado. Revisa el código."); 
+                    setRole(null); 
+                });
+                
                 peerRef.current = peer;
             };
 
@@ -295,19 +339,21 @@
                     <div className="w-full md:w-64 flex flex-col gap-4">
                         <div className="police-tape mb-4">CRIME SCENE - DO NOT CROSS</div>
                         
-                        {tabs.map(tab => (
-                            <button key={tab.id} 
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`text-left px-4 py-3 border border-gray-600 transition-all typewriter ${activeTab === tab.id ? 'bg-white text-black font-bold' : 'bg-transparent text-gray-400 hover:text-white hover:border-white'}`}>
-                                > {tab.label}
-                            </button>
-                        ))}
+                        {tabs.map((tab) => {
+                            const btnClass = "text-left px-4 py-3 border border-gray-600 transition-all typewriter " + 
+                                             (activeTab === tab.id ? 'bg-white text-black font-bold' : 'bg-transparent text-gray-400 hover:text-white hover:border-white');
+                            return (
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={btnClass}>
+                                    > {tab.label}
+                                </button>
+                            );
+                        })}
 
                         <div className="mt-auto p-4 border border-gray-700 text-xs text-gray-400 typewriter">
                             <p className="mb-2 text-white border-b border-gray-600 pb-1">ESTADO DEL CASO:</p>
-                            <p className={gameState.chapter >= 1 ? 'text-white' : ''}>CAP 1: El Despacho {gameState.chapter > 1 && '✓'}</p>
-                            <p className={gameState.chapter >= 2 ? 'text-white' : ''}>CAP 2: La Coartada {gameState.chapter > 2 && '✓'}</p>
-                            <p className={gameState.chapter >= 3 ? 'text-white' : ''}>CAP 3: Confrontación {gameState.chapter > 3 && '✓'}</p>
+                            <p className={gameState.chapter >= 1 ? 'text-white' : ''}>CAP 1: El Despacho {gameState.chapter > 1 ? '✓' : ''}</p>
+                            <p className={gameState.chapter >= 2 ? 'text-white' : ''}>CAP 2: La Coartada {gameState.chapter > 2 ? '✓' : ''}</p>
+                            <p className={gameState.chapter >= 3 ? 'text-white' : ''}>CAP 3: Confrontación {gameState.chapter > 3 ? '✓' : ''}</p>
                         </div>
                     </div>
 
@@ -315,8 +361,8 @@
                         <div className="manila-tab">{isDetective ? 'INVESTIGACIÓN IN SITU' : 'REGISTROS POLICIALES'}</div>
                         
                         {activeTab === 'historia' && <TabHistoria role={role} gameState={gameState} />}
-                        {isDetective && activeTab === 'escena' && <TabEscena gameState={gameState} updateState={updateState} resetGame={resetGame} />}
-                        {!isDetective && activeTab === 'base_datos' && <TabBaseDatos gameState={gameState} updateState={updateState} resetGame={resetGame} />}
+                        {isDetective && activeTab === 'escena' && <TabEscena gameState={gameState} updateState={updateState} />}
+                        {!isDetective && activeTab === 'base_datos' && <TabBaseDatos gameState={gameState} updateState={updateState} />}
                     </div>
                 </div>
             );
@@ -343,7 +389,7 @@
             );
         }
 
-        function TabEscena({ gameState, updateState, resetGame }) {
+        function TabEscena({ gameState, updateState }) {
             const [safeCode, setSafeCode] = useState("");
             const [diaryCode, setDiaryCode] = useState("");
             
@@ -420,7 +466,7 @@
                                 <p className="typewriter text-sm mb-6">El asesino sigue aquí y va a escapar. Para sellar las puertas de la mansión, tú debes accionar la alarma física mientras el Archivo bloquea el perímetro desde la central. <strong>Hacedlo exactamente al mismo tiempo.</strong></p>
                                 
                                 <button 
-                                    className={`w-full py-4 text-xl font-bold typewriter border-2 ${gameState.detReady ? 'bg-red-900 text-white border-red-900' : 'bg-transparent text-red-900 border-red-900 hover:bg-red-900 hover:text-white'}`}
+                                    className={"w-full py-4 text-xl font-bold typewriter border-2 " + (gameState.detReady ? 'bg-red-900 text-white border-red-900' : 'bg-transparent text-red-900 border-red-900 hover:bg-red-900 hover:text-white')}
                                     onClick={() => updateState({ detReady: true })}
                                 >
                                     {gameState.detReady ? 'ALARMA ACCIONADA (ESPERANDO)' : 'TIRAR DE LA ALARMA'}
@@ -429,12 +475,12 @@
                         </div>
                     )}
 
-                    {gameState.chapter === 4 && <VictoryScreen resetGame={resetGame} />}
+                    {gameState.chapter === 4 && <VictoryScreen />}
                 </div>
             );
         }
 
-        function TabBaseDatos({ gameState, updateState, resetGame }) {
+        function TabBaseDatos({ gameState, updateState }) {
             return (
                 <div className="text-black space-y-8">
                     {gameState.chapter === 1 && (
@@ -486,7 +532,7 @@
                                 <p className="typewriter font-bold mb-6">Debes pulsar el botón de CIERRE en el mismo instante que el Detective acciona la alarma in situ para atraparlo entre dos puertas.</p>
                                 
                                 <button 
-                                    className={`w-full py-4 text-xl font-bold typewriter border-2 ${gameState.archReady ? 'bg-red-900 text-white border-red-900' : 'bg-transparent text-red-900 border-red-900 hover:bg-red-900 hover:text-white'}`}
+                                    className={"w-full py-4 text-xl font-bold typewriter border-2 " + (gameState.archReady ? 'bg-red-900 text-white border-red-900' : 'bg-transparent text-red-900 border-red-900 hover:bg-red-900 hover:text-white')}
                                     onClick={() => updateState({ archReady: true })}
                                 >
                                     {gameState.archReady ? 'CIERRE ENVIADO (ESPERANDO)' : 'ACTIVAR CIERRE DE EMERGENCIA'}
@@ -495,12 +541,12 @@
                         </div>
                     )}
 
-                    {gameState.chapter === 4 && <VictoryScreen resetGame={resetGame} />}
+                    {gameState.chapter === 4 && <VictoryScreen />}
                 </div>
             );
         }
 
-        function VictoryScreen({ resetGame }) {
+        function VictoryScreen() {
             return (
                 <div className="text-center py-12 border-4 border-black p-8 bg-white shadow-2xl transform rotate-1">
                     <h2 className="text-4xl font-bold text-black mb-4 typewriter border-b-2 border-black pb-2">CASO CERRADO</h2>
@@ -511,7 +557,7 @@
                     <p className="text-gray-700 mt-4 max-w-md mx-auto typewriter text-sm">Excelente trabajo de equipo. La deducción en la escena y la inteligencia en el archivo han resuelto el asesinato del Lirio Negro.</p>
                     
                     <div className="mt-8 pt-4 border-t border-gray-400">
-                        <button className="btn-noir mb-4" onClick={resetGame}>CERRAR EXPEDIENTE (REINICIAR)</button>
+                        <button className="btn-noir mb-4" onClick={() => window.location.reload()}>CERRAR EXPEDIENTE (REINICIAR)</button>
                         <br/>
                         <p className="typewriter font-bold text-2xl text-red-800 transform -rotate-12 w-fit mx-auto border-4 border-red-800 p-2">ARCHIVADO</p>
                     </div>
