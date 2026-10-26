@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocolo Dual: Sombras de Neo-Terrassa</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase Compat (v9) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <style>
+        body { 
+            background-color: #050505; 
+            color: #00ff00; 
+            font-family: 'Courier New', Courier, monospace; 
+        }
+        .cyber-input { 
+            background: #111; 
+            border: 1px solid #00ff00; 
+            color: #00ff00; 
+            padding: 0.5rem; 
+            outline: none; 
+            width: 100%; 
+        }
+        .cyber-input:focus {
+            box-shadow: 0 0 10px #00ff00;
+        }
+        .cyber-btn { 
+            background: #004400; 
+            border: 1px solid #00ff00; 
+            color: #00ff00; 
+            padding: 0.5rem 1rem; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            font-weight: bold; 
+            transition: all 0.2s; 
+        }
+        .cyber-btn:hover { 
+            background: #00ff00; 
+            color: #000; 
+            box-shadow: 0 0 15px #00ff00;
+        }
+        .scanlines { 
+            position: fixed; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); 
+            background-size: 100% 2px, 3px 100%; 
+            pointer-events: none; 
+            z-index: 50; 
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div id="root" class="min-h-screen p-4 flex flex-col items-center justify-center relative z-10"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // ⚠️ REEMPLAZA ESTO CON LA CONFIGURACIÓN DE TU PROYECTO DE FIREBASE
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            databaseURL: "https://TU_PROYECTO.firebaseio.com", // Asegúrate de incluir esta línea
+            projectId: "TU_PROYECTO",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "TU_MESSAGING_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
+
+        // Inicializar Firebase solo una vez
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        function App() {
+            const [room, setRoom] = useState("");
+            const [role, setRole] = useState(null); // 'agente' o 'analista'
+            const [joined, setJoined] = useState(false);
+            const [gameState, setGameState] = useState({ level: 1, agentData: "", analystData: "" });
+            const [inputVal, setInputVal] = useState("");
+
+            // Sincronización en tiempo real con Firebase Realtime Database
+            useEffect(() => {
+                if (joined && room) {
+                    const roomRef = db.ref('rooms/' + room);
+                    roomRef.on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            setGameState(data);
+                        } else {
+                            // Si la sala no existe, la inicializamos en el Nivel 1
+                            roomRef.set({ level: 1, agentData: "", analystData: "" });
+                        }
+                    });
+                    return () => roomRef.off(); // Limpiar el listener al desmontar
+                }
+            }, [joined, room]);
+
+            const joinRoom = (selectedRole) => {
+                if (room.trim() !== "") {
+                    setRole(selectedRole);
+                    setJoined(true);
+                }
+            };
+
+            const updateState = (updates) => {
+                db.ref('rooms/' + room).update(updates);
+            };
+
+            // --- LÓGICA DE LOS NIVELES ---
+
+            // NIVEL 1: Analista lee logs -> Agente introduce IP
+            const checkLevel1 = () => {
+                if (role === 'agente' && inputVal.trim() === "192.168.10.45") {
+                    updateState({ level: 2 });
+                    setInputVal("");
+                }
+            };
+
+            // NIVEL 2: Agente encuentra hardware físico -> Analista afina regla
+            const checkLevel2 = () => {
+                if (role === 'analista' && inputVal.trim().toUpperCase() === "TRX-8821") {
+                    updateState({ level: 3 });
+                    setInputVal("");
+                }
+            };
+
+            // NIVEL 3: Sincronización simultánea
+            const activateSync = () => {
+                if (role === 'agente') updateState({ agentData: "ready" });
+                if (role === 'analista') updateState({ analystData: "ready" });
+            };
+
+            useEffect(() => {
+                if (gameState.level === 3 && gameState.agentData === "ready" && gameState.analystData === "ready") {
+                    updateState({ level: 4 });
+                }
+            }, [gameState]);
+
+            // --- VISTAS ---
+
+            if (!joined) {
+                return (
+                    <div className="max-w-md w-full bg-black p-8 border border-green-500 shadow-[0_0_15px_#00ff00]">
+                        <h1 className="text-2xl font-bold mb-6 text-center border-b border-green-800 pb-2">ACCESO AL PROTOCOLO</h1>
+                        <div className="mb-6">
+                            <label className="block mb-2 text-sm text-gray-400">Canal de comunicación (ID Sala):</label>
+                            <input 
+                                type="text" 
+                                className="cyber-input" 
+                                value={room} 
+                                onChange={(e) => setRoom(e.target.value)} 
+                                placeholder="Ej: neo-terrassa-01" 
+                            />
+                        </div>
+                        <div className="flex gap-4">
+                            <button className="cyber-btn w-1/2 text-sm" onClick={() => joinRoom('agente')}>Agente de Campo</button>
+                            <button className="cyber-btn w-1/2 text-sm" onClick={() => joinRoom('analista')}>Analista SOC</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-2xl w-full bg-black p-8 border border-green-500 shadow-[0_0_20px_#004400]">
+                    <div className="flex justify-between items-center mb-6 border-b border-green-800 pb-2 text-sm md:text-base">
+                        <span className="font-bold">CANAL: {room.toUpperCase()}</span>
+                        <span className="font-bold text-blue-400">
+                            ROL: {role === 'agente' ? 'OPERATIVO DE CAMPO' : 'ANALISTA SOC TIER 2'}
+                        </span>
+                    </div>
+
+                    {gameState.level === 1 && (
+                        <div>
+                            <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 1: BRECHA PERIMETRAL</h2>
+                            {role === 'analista' ? (
+                                <div className="bg-gray-900 p-4 border border-gray-700">
+                                    <p className="text-red-400 mb-2">[ALERTA SIEM] - Elevación de privilegios detectada en el sector financiero.</p>
+                                    <p>Has tirado del hilo en la integración de logs y aislado el origen de la anomalía.</p>
+                                    <p className="font-bold mt-4 text-yellow-300">IP DE ORIGEN A BLOQUEAR: 192.168.10.45</p>
+                                    <p className="mt-4 text-sm text-gray-400">Comunícate por radio con el Agente de Campo para que puentee el nodo introduciendo esta IPv4.</p>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-900 p-4 border border-gray-700">
+                                    <p>Estás frente a la terminal principal del nodo central. El cortafuegos local ha sido purgado.</p>
+                                    <p className="mb-4">El Analista SOC tiene la IP de origen atacante en su monitor. Pídele las coordenadas lógicas.</p>
+                                    <input type="text" className="cyber-input mb-4" value={inputVal} onChange={(e) => setInputVal(e.target.value)} placeholder="Introduce IPv4..." />
+                                    <button className="cyber-btn w-full" onClick={checkLevel1}>Ejecutar Bloqueo Manual</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {gameState.level === 2 && (
+                        <div>
+                            <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 2: INTERCEPTACIÓN DE HARDWARE</h2>
+                            {role === 'agente' ? (
+                                <div className="bg-gray-900 p-4 border border-gray-700">
+                                    <p>Te has desplazado a las coordenadas físicas de la brecha, ocultas cerca de las rutas de Sant Llorenç del Munt.</p>
+                                    <p>Has encontrado un módulo de hardware sospechoso enganchado a un repetidor.</p>
+                                    <p className="font-bold mt-4 text-yellow-300">NÚMERO DE SERIE GRABADO: TRX-8821</p>
+                                    <p className="mt-4 text-sm text-gray-400">Transmite esta firma al Analista para que pueda afinar la regla de detección y bloquear su firma MAC.</p>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-900 p-4 border border-gray-700">
+                                    <p>Necesitas afinar el caso de uso en el SIEM para aislar el hardware comprometido, pero te falta la firma del dispositivo.</p>
+                                    <p className="mb-4">El Agente de Campo ha localizado el módulo en la montaña. Pregúntale el número de serie físico para crear la regla.</p>
+                                    <input type="text" className="cyber-input mb-4" value={inputVal} onChange={(e) => setInputVal(e.target.value)} placeholder="Introduce N/S del hardware..." />
+                                    <button className="cyber-btn w-full" onClick={checkLevel2}>Afinar Regla y Aislar</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {gameState.level === 3 && (
+                        <div>
+                            <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 3: PURGA DE SISTEMA DUAL</h2>
+                            <div className="bg-gray-900 p-4 border border-gray-700 text-center">
+                                <p className="mb-4">La amenaza ha sido contenida. Para purgar el sistema de forma segura, ambos operativos deben enviar la clave de autorización final de manera simultánea.</p>
+                                <p className="text-sm text-gray-400 mb-6">Sincronicen sus relojes y pulsen el botón.</p>
+                                
+                                <button 
+                                    className={`cyber-btn w-full py-4 text-xl ${((role === 'agente' && gameState.agentData === 'ready') || (role === 'analista' && gameState.analystData === 'ready')) ? 'bg-green-600 text-black border-green-600' : ''}`}
+                                    onClick={activateSync}
+                                >
+                                    {((role === 'agente' && gameState.agentData === 'ready') || (role === 'analista' && gameState.analystData === 'ready')) ? 'AUTORIZACIÓN ENVIADA...' : 'AUTORIZAR PURGA'}
+                                </button>
+
+                                <div className="mt-6 flex justify-between px-2 md:px-8 text-sm font-bold">
+                                    <span className={gameState.agentData === 'ready' ? 'text-green-500' : 'text-red-500'}>
+                                        AGENTE: {gameState.agentData === 'ready' ? 'LISTO' : 'ESPERANDO'}
+                                    </span>
+                                    <span className={gameState.analystData === 'ready' ? 'text-green-500' : 'text-red-500'}>
+                                        ANALISTA: {gameState.analystData === 'ready' ? 'LISTO' : 'ESPERANDO'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameState.level === 4 && (
+                        <div className="text-center py-8">
+                            <h2 className="text-3xl font-bold text-blue-400 mb-4 animate-pulse">AMENAZA NEUTRALIZADA</h2>
+                            <p className="text-xl mb-2">Red de Neo-Terrassa asegurada.</p>
+                            <p className="text-gray-400">Buen trabajo, equipo.</p>
+                            <button className="cyber-btn mt-8" onClick={() => updateState({ level: 1, agentData: "", analystData: "" })}>
+                                Reiniciar Simulación
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
