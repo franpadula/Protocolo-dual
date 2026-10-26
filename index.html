@@ -3,324 +3,513 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Protocolo Dual: Sombras de Neo-Terrassa (P2P)</title>
+    <title>Protocolo Dual: El Caso del Lirio Negro</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- PeerJS para conexión directa P2P -->
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
 
     <style>
-        body { background-color: #050505; color: #00ff00; font-family: 'Courier New', Courier, monospace; }
-        .cyber-input { background: #111; border: 1px solid #00ff00; color: #00ff00; padding: 0.5rem; outline: none; width: 100%; text-transform: uppercase; }
-        .cyber-input:focus { box-shadow: 0 0 10px #00ff00; }
-        .cyber-btn { background: #004400; border: 1px solid #00ff00; color: #00ff00; padding: 0.5rem 1rem; cursor: pointer; font-weight: bold; transition: all 0.2s; }
-        .cyber-btn:hover:not(:disabled) { background: #00ff00; color: #000; box-shadow: 0 0 15px #00ff00; }
-        .cyber-btn:disabled { border-color: #333; color: #555; background: #111; cursor: not-allowed; }
-        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06)); background-size: 100% 2px, 3px 100%; pointer-events: none; z-index: 50; }
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+        
+        :root {
+            --bg-noir: #121212;
+            --paper: #eaddcf;
+            --ink: #2b2b2b;
+            --blood: #8a0303;
+            --police-blue: #1c2d42;
+        }
+
+        body { 
+            background-color: var(--bg-noir); 
+            color: var(--paper); 
+            font-family: 'Playfair Display', serif; 
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at center, #2a2a2a 0%, #121212 100%);
+        }
+
+        /* Utilidades tipográficas */
+        .typewriter { font-family: 'Courier Prime', monospace; }
+        .handwriting { font-family: 'Playfair Display', serif; font-style: italic; }
+        
+        /* Estilos de Documentos y UI */
+        .manila-folder {
+            background-color: #d1bfae;
+            color: var(--ink);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5), inset 0 0 50px rgba(0,0,0,0.1);
+            border-radius: 2px 2px 5px 5px;
+            position: relative;
+        }
+        
+        .manila-tab {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            background-color: #c0ad9d;
+            padding: 5px 20px;
+            border-radius: 5px 5px 0 0;
+            font-family: 'Courier Prime', monospace;
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: var(--ink);
+        }
+
+        .polaroid {
+            background: white;
+            padding: 10px 10px 30px 10px;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
+            transform: rotate(-2deg);
+            width: fit-content;
+            color: var(--ink);
+        }
+        
+        .polaroid-img {
+            width: 200px;
+            height: 150px;
+            background-color: #333;
+            background-image: radial-gradient(circle, #555, #111);
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .police-tape {
+            background-color: #fbd60a;
+            color: black;
+            font-family: 'Courier Prime', monospace;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px;
+            transform: rotate(-1deg);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            letter-spacing: 2px;
+        }
+
+        .btn-noir {
+            background-color: var(--ink);
+            color: var(--paper);
+            font-family: 'Courier Prime', monospace;
+            border: 1px solid var(--paper);
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-noir:hover:not(:disabled) {
+            background-color: var(--paper);
+            color: var(--ink);
+        }
+        .btn-noir:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .input-noir {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid var(--ink);
+            color: var(--ink);
+            font-family: 'Courier Prime', monospace;
+            font-size: 1.2rem;
+            padding: 0.5rem;
+            outline: none;
+            text-align: center;
+            width: 100%;
+        }
+        .input-noir:focus { border-color: var(--blood); }
+
+        /* Efectos visuales de cine negro */
+        .film-grain {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E');
+            pointer-events: none; z-index: 50;
+        }
+
+        .blood-stain {
+            position: absolute;
+            background: var(--blood);
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            filter: blur(2px);
+            opacity: 0.7;
+            mix-blend-mode: multiply;
+        }
     </style>
 </head>
 <body>
-    <div class="scanlines"></div>
-    <div id="root" class="min-h-screen p-4 flex flex-col items-center justify-center relative z-10"></div>
+    <div class="film-grain"></div>
+    <div id="root" class="min-h-screen relative z-10 flex p-4 md:p-8"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Generador de códigos cortos (ej: A4X9)
-        const generateShortId = () => {
-            return Math.random().toString(36).substring(2, 6).toUpperCase();
-        };
+        const generateShortId = () => Math.random().toString(36).substring(2, 6).toUpperCase();
 
         function App() {
             const [peerId, setPeerId] = useState("");
             const [targetId, setTargetId] = useState("");
-            const [role, setRole] = useState(null); 
+            const [role, setRole] = useState(null); // 'detective' o 'archivo'
             const [connected, setConnected] = useState(false);
             const [errorMsg, setErrorMsg] = useState("");
             
-            const [gameState, setGameState] = useState({ level: 1, agentData: "", analystData: "" });
-            const [inputVal, setInputVal] = useState("");
+            const [gameState, setGameState] = useState({ 
+                chapter: 1, 
+                safeUnlocked: false,
+                diaryUnlocked: false,
+                detReady: false,
+                archReady: false
+            });
             
-            // Usamos refs para evitar problemas de "stale closures" con PeerJS
             const peerRef = useRef(null);
             const connRef = useRef(null);
             const gameStateRef = useRef(gameState);
 
-            // Mantener la ref actualizada siempre que el estado cambie
             useEffect(() => {
                 gameStateRef.current = gameState;
-                
-                // Comprobación de victoria en el nivel 3
-                if (gameState.level === 3 && gameState.agentData === "ready" && gameState.analystData === "ready") {
-                    setTimeout(() => updateStateAndSync({ level: 4 }), 500);
+                if (gameState.chapter === 3 && gameState.detReady && gameState.archReady) {
+                    setTimeout(() => updateStateAndSync({ chapter: 4 }), 1000);
                 }
             }, [gameState]);
 
-            // --- LÓGICA DE RED ---
-
-            // JUGADOR 1 (Agente)
-            const createRoom = () => {
-                const shortId = "NEO-" + generateShortId();
-                const peer = new Peer(shortId);
-                
-                peer.on('open', (id) => {
-                    setPeerId(id);
-                    setRole('agente');
-                    setErrorMsg("");
-                });
-                
-                peer.on('connection', (conn) => {
-                    connRef.current = conn;
-                    
-                    conn.on('open', () => {
-                        setConnected(true);
-                        setErrorMsg("");
-                        // El Host envía el estado inicial al conectarse
-                        conn.send(gameStateRef.current);
-                    });
-                    
-                    conn.on('data', (data) => {
-                        setGameState(data);
-                    });
-
-                    conn.on('close', () => {
-                        setConnected(false);
-                        setErrorMsg("Conexión perdida con el Analista.");
-                    });
-                });
-
-                peer.on('error', (err) => {
-                    setErrorMsg("Error de red: " + err.type);
-                });
-
-                peerRef.current = peer;
-            };
-
-            // JUGADOR 2 (Analista)
-            const joinRoom = () => {
-                if (!targetId) return;
-                
-                const formattedTargetId = targetId.trim().toUpperCase();
-                // Si el usuario olvidó poner "NEO-", se lo añadimos
-                const finalTargetId = formattedTargetId.startsWith("NEO-") ? formattedTargetId : "NEO-" + formattedTargetId;
-
-                const peer = new Peer();
-                
-                peer.on('open', () => {
-                    setRole('analista');
-                    setErrorMsg("");
-                    
-                    const conn = peer.connect(finalTargetId, { reliable: true });
-                    connRef.current = conn;
-                    
-                    conn.on('open', () => {
-                        setConnected(true);
-                        setErrorMsg("");
-                    });
-                    
-                    conn.on('data', (data) => {
-                        setGameState(data);
-                    });
-
-                    conn.on('close', () => {
-                        setConnected(false);
-                        setErrorMsg("Conexión perdida con el Agente.");
-                    });
-                });
-
-                peer.on('error', (err) => {
-                    setErrorMsg("Error: Verifica el código de acceso. (" + err.type + ")");
-                    setRole(null);
-                });
-
-                peerRef.current = peer;
-            };
-
-            // Función unificada para actualizar estado local y mandarlo por la red
             const updateStateAndSync = (updates) => {
                 const newState = { ...gameStateRef.current, ...updates };
                 setGameState(newState);
-                if (connRef.current && connRef.current.open) {
-                    connRef.current.send(newState);
-                }
+                if (connRef.current?.open) connRef.current.send(newState);
             };
 
-            // --- LÓGICA DE NIVELES ---
-            const checkLevel1 = () => {
-                if (role === 'agente' && inputVal.trim() === "192.168.10.45") {
-                    updateStateAndSync({ level: 2 });
-                    setInputVal("");
-                } else if (role === 'agente') {
-                    setErrorMsg("IP Incorrecta");
-                    setTimeout(() => setErrorMsg(""), 2000);
-                }
+            // JUGADOR 1: Detective (Host)
+            const createRoom = () => {
+                const shortId = "CASO-" + generateShortId();
+                const peer = new Peer(shortId);
+                
+                peer.on('open', (id) => { setPeerId(id); setRole('detective'); setErrorMsg(""); });
+                peer.on('connection', (conn) => {
+                    connRef.current = conn;
+                    conn.on('open', () => { setConnected(true); conn.send(gameStateRef.current); });
+                    conn.on('data', setGameState);
+                    conn.on('close', () => { setConnected(false); setErrorMsg("La otra línea ha colgado."); });
+                });
+                peer.on('error', (err) => setErrorMsg("Error de centralita: " + err.type));
+                peerRef.current = peer;
             };
 
-            const checkLevel2 = () => {
-                if (role === 'analista' && inputVal.trim().toUpperCase() === "TRX-8821") {
-                    updateStateAndSync({ level: 3 });
-                    setInputVal("");
-                } else if (role === 'analista') {
-                    setErrorMsg("Firma de Hardware no reconocida");
-                    setTimeout(() => setErrorMsg(""), 2000);
-                }
+            // JUGADOR 2: Archivo (Client)
+            const joinRoom = () => {
+                if (!targetId) return;
+                const finalId = targetId.trim().toUpperCase().startsWith("CASO-") ? targetId.trim().toUpperCase() : "CASO-" + targetId.trim().toUpperCase();
+
+                const peer = new Peer();
+                peer.on('open', () => {
+                    setRole('archivo');
+                    const conn = peer.connect(finalId, { reliable: true });
+                    connRef.current = conn;
+                    conn.on('open', () => setConnected(true));
+                    conn.on('data', setGameState);
+                    conn.on('close', () => setConnected(false));
+                });
+                peer.on('error', (err) => { setErrorMsg("Expediente no encontrado. Revisa el código."); setRole(null); });
+                peerRef.current = peer;
             };
 
-            const activateSync = () => {
-                if (role === 'agente') updateStateAndSync({ agentData: "ready" });
-                if (role === 'analista') updateStateAndSync({ analystData: "ready" });
-            };
-
-
-            // --- VISTAS ---
-
+            // PANTALLAS DE INICIO
             if (!role) {
                 return (
-                    <div className="max-w-md w-full bg-black p-8 border border-green-500 shadow-[0_0_15px_#00ff00]">
-                        <h1 className="text-2xl font-bold mb-6 text-center border-b border-green-800 pb-2">SISTEMA SOC: NEO-TERRASSA</h1>
+                    <div className="m-auto w-full max-w-3xl manila-folder p-10 mt-10">
+                        <div className="manila-tab">DCPD - ARCHIVO CENTRAL</div>
+                        <div className="text-center mb-10 border-b-2 border-black pb-6 relative">
+                            <h1 className="text-4xl font-bold mb-2 tracking-widest text-black">EL CASO DEL LIRIO NEGRO</h1>
+                            <p className="typewriter text-gray-700">Expediente #84-B // Homicidio en Primer Grado</p>
+                            <div className="blood-stain" style={{top: '10px', right: '10px'}}></div>
+                        </div>
                         
-                        {errorMsg && <div className="mb-4 p-2 bg-red-900 border border-red-500 text-red-200 text-sm text-center">{errorMsg}</div>}
+                        {errorMsg && <div className="mb-6 p-3 bg-red-900 border border-red-500 text-white text-center typewriter">{errorMsg}</div>}
 
-                        <div className="mb-8 p-4 border border-gray-700 bg-gray-900">
-                            <h3 className="mb-2 font-bold text-blue-400">AGENTE DE CAMPO (Host)</h3>
-                            <button className="cyber-btn w-full text-sm" onClick={createRoom}>Iniciar Operación y Crear Código</button>
-                        </div>
-
-                        <div className="p-4 border border-gray-700 bg-gray-900">
-                            <h3 className="mb-2 font-bold text-yellow-400">ANALISTA SOC (Cliente)</h3>
-                            <input 
-                                type="text" 
-                                className="cyber-input mb-4 text-center font-bold text-lg uppercase" 
-                                value={targetId} 
-                                onChange={(e) => setTargetId(e.target.value)} 
-                                placeholder="EJ: A7X2" 
-                            />
-                            <button className="cyber-btn w-full text-sm" onClick={joinRoom} disabled={!targetId}>Conectar al Túnel</button>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (role === 'agente' && !connected) {
-                return (
-                    <div className="max-w-md w-full bg-black p-8 border border-green-500 text-center">
-                        <h2 className="text-xl mb-4 font-bold">TÚNEL ESTABLECIDO</h2>
-                        <p className="text-gray-400 mb-2">Dicta este código de acceso al Analista:</p>
-                        <div className="bg-gray-900 p-4 border border-green-500 mb-6 font-bold text-3xl tracking-widest text-yellow-400">
-                            {peerId.replace('NEO-', '')}
-                        </div>
-                        <p className="text-sm text-green-500 animate-pulse">Esperando conexión entrante de Ainoa...</p>
-                    </div>
-                );
-            }
-
-            if (role === 'analista' && !connected) {
-                return (
-                    <div className="max-w-md w-full bg-black p-8 border border-green-500 text-center">
-                        {errorMsg ? (
-                            <div>
-                                <p className="text-red-500 mb-4">{errorMsg}</p>
-                                <button className="cyber-btn" onClick={() => setRole(null)}>Volver</button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-black">
+                            <div className="p-6 border border-gray-400 bg-[#c9b5a2] shadow-inner">
+                                <h3 className="mb-2 font-bold text-xl typewriter">1. DETECTIVE EN ESCENA</h3>
+                                <p className="text-sm mb-6 handwriting">Te encuentras en la mansión de la víctima. Examinarás pruebas físicas, cadáveres y cerraduras. No tienes acceso a los antecedentes.</p>
+                                <button className="btn-noir w-full" onClick={createRoom}>ABRIR INVESTIGACIÓN</button>
                             </div>
+
+                            <div className="p-6 border border-gray-400 bg-[#c9b5a2] shadow-inner">
+                                <h3 className="mb-2 font-bold text-xl typewriter">2. ARCHIVO POLICIAL</h3>
+                                <p className="text-sm mb-4 handwriting">Estás en comisaría. Tienes acceso a registros, interrogatorios y bases de datos. No puedes ver la escena del crimen.</p>
+                                <input type="text" className="input-noir mb-4" value={targetId} onChange={(e) => setTargetId(e.target.value)} placeholder="Nº DE EXPEDIENTE (Ej: A7X2)" />
+                                <button className="btn-noir w-full" onClick={joinRoom} disabled={!targetId}>BUSCAR EXPEDIENTE</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!connected) {
+                return (
+                    <div className="m-auto w-full max-w-md manila-folder p-10 text-center text-black mt-10">
+                        {role === 'detective' ? (
+                            <>
+                                <h2 className="text-2xl mb-4 font-bold typewriter">LÍNEA ABIERTA</h2>
+                                <p className="text-gray-700 mb-4 handwriting">Dile al Archivo que busque este número de expediente:</p>
+                                <div className="bg-white p-4 border border-gray-400 mb-6 font-bold text-4xl tracking-widest typewriter">
+                                    {peerId.replace('CASO-', '')}
+                                </div>
+                                <p className="text-sm text-gray-600 animate-pulse typewriter">Esperando que descuelguen el teléfono...</p>
+                            </>
                         ) : (
-                            <p className="animate-pulse text-yellow-400 font-bold">Negociando claves de cifrado (Estableciendo túnel)...</p>
+                            <h2 className="text-2xl font-bold typewriter animate-pulse">Buscando archivos en el sótano...</h2>
                         )}
                     </div>
                 );
             }
 
-            // PANTALLA PRINCIPAL DEL JUEGO
+            return <GameInterface role={role} gameState={gameState} updateState={updateStateAndSync} />;
+        }
+
+        // --- INTERFAZ DEL JUEGO ---
+        function GameInterface({ role, gameState, updateState }) {
+            const [activeTab, setActiveTab] = useState('historia');
+            const isDetective = role === 'detective';
+
+            const tabs = isDetective 
+                ? [ {id: 'historia', label: 'LIBRETA DE NOTAS'}, {id: 'escena', label: 'ESCENA DEL CRIMEN'} ]
+                : [ {id: 'historia', label: 'INFORME PRELIMINAR'}, {id: 'base_datos', label: 'GAVETA DE ARCHIVOS'} ];
+
             return (
-                <div className="max-w-2xl w-full bg-black p-8 border border-green-500 shadow-[0_0_20px_#004400]">
-                    <div className="flex justify-between items-center mb-6 border-b border-green-800 pb-2 text-sm md:text-base">
-                        <span className="font-bold text-green-500 animate-pulse">● ENLACE SEGURO ACTIVO</span>
-                        <span className="font-bold text-blue-400">
-                            ROL: {role === 'agente' ? 'OPERATIVO DE CAMPO' : 'ANALISTA SOC TIER 2'}
-                        </span>
+                <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row gap-6 mt-6">
+                    
+                    {/* MENU IZQUIERDO */}
+                    <div className="w-full md:w-64 flex flex-col gap-4">
+                        <div className="police-tape mb-4">CRIME SCENE - DO NOT CROSS</div>
+                        
+                        {tabs.map(tab => (
+                            <button key={tab.id} 
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`text-left px-4 py-3 border border-gray-600 transition-all typewriter ${activeTab === tab.id ? 'bg-white text-black font-bold' : 'bg-transparent text-gray-400 hover:text-white hover:border-white'}`}>
+                                > {tab.label}
+                            </button>
+                        ))}
+
+                        <div className="mt-auto p-4 border border-gray-700 text-xs text-gray-400 typewriter">
+                            <p className="mb-2 text-white border-b border-gray-600 pb-1">ESTADO DEL CASO:</p>
+                            <p className={gameState.chapter >= 1 ? 'text-white' : ''}>CAP 1: El Despacho {gameState.chapter > 1 && '✓'}</p>
+                            <p className={gameState.chapter >= 2 ? 'text-white' : ''}>CAP 2: La Coartada {gameState.chapter > 2 && '✓'}</p>
+                            <p className={gameState.chapter >= 3 ? 'text-white' : ''}>CAP 3: Confrontación {gameState.chapter > 3 && '✓'}</p>
+                        </div>
                     </div>
 
-                    {errorMsg && <div className="mb-4 p-2 bg-red-900 border border-red-500 text-red-200 text-sm text-center">{errorMsg}</div>}
+                    {/* ÁREA PRINCIPAL */}
+                    <div className="flex-1 manila-folder p-6 md:p-10 min-h-[600px]">
+                        <div className="manila-tab">{isDetective ? 'INVESTIGACIÓN IN SITU' : 'REGISTROS POLICIALES'}</div>
+                        
+                        {activeTab === 'historia' && <TabHistoria role={role} gameState={gameState} />}
+                        
+                        {isDetective && activeTab === 'escena' && <TabEscena gameState={gameState} updateState={updateState} />}
+                        {!isDetective && activeTab === 'base_datos' && <TabBaseDatos gameState={gameState} updateState={updateState} />}
+                    </div>
+                </div>
+            );
+        }
 
-                    {gameState.level === 1 && (
-                        <div>
-                            <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 1: BRECHA PERIMETRAL</h2>
-                            {role === 'analista' ? (
-                                <div className="bg-gray-900 p-4 border border-gray-700">
-                                    <p className="text-red-400 mb-2">[ALERTA SIEM] - Elevación de privilegios detectada.</p>
-                                    <p>Has aislado el origen de la anomalía en los logs del cortafuegos perimetral.</p>
-                                    <p className="font-bold mt-4 text-yellow-300">IP DE ORIGEN A BLOQUEAR: 192.168.10.45</p>
-                                    <p className="mt-4 text-sm text-gray-400">Comunícate por voz con el Agente de Campo para que introduzca esta IPv4 en la terminal física de contención.</p>
-                                </div>
-                            ) : (
-                                <div className="bg-gray-900 p-4 border border-gray-700">
-                                    <p>Estás frente a la terminal principal. El Analista tiene la IP maliciosa bloqueada en su monitor.</p>
-                                    <p className="mb-4">Pídele las coordenadas lógicas (IPv4) para aplicar el bloqueo en el nodo local.</p>
-                                    <input type="text" className="cyber-input mb-4" value={inputVal} onChange={(e) => setInputVal(e.target.value)} placeholder="Introduce IPv4..." />
-                                    <button className="cyber-btn w-full" onClick={checkLevel1}>Ejecutar Bloqueo Manual</button>
-                                </div>
-                            )}
-                        </div>
-                    )}
+        // --- PESTAÑAS NARRATIVAS ---
 
-                    {gameState.level === 2 && (
-                        <div>
-                            <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 2: INTERCEPTACIÓN DE HARDWARE</h2>
-                            {role === 'agente' ? (
-                                <div className="bg-gray-900 p-4 border border-gray-700">
-                                    <p>Has encontrado un módulo de hardware sospechoso (probablemente un skimmer de red) enganchado a un repetidor físico.</p>
-                                    <p className="font-bold mt-4 text-yellow-300">NÚMERO DE SERIE GRABADO: TRX-8821</p>
-                                    <p className="mt-4 text-sm text-gray-400">Transmite esta firma al Analista para que pueda crear un caso de uso (use case) en el SIEM y aislar el dispositivo.</p>
-                                </div>
-                            ) : (
-                                <div className="bg-gray-900 p-4 border border-gray-700">
-                                    <p>Necesitas afinar el caso de uso en el SIEM para detectar el dispositivo de red rebelde, pero te falta la firma física.</p>
-                                    <p className="mb-4">El Agente de Campo ha localizado el módulo. Pregúntale el número de serie (N/S).</p>
-                                    <input type="text" className="cyber-input mb-4" value={inputVal} onChange={(e) => setInputVal(e.target.value)} placeholder="Introduce N/S del hardware..." />
-                                    <button className="cyber-btn w-full" onClick={checkLevel2}>Afinar Regla de Detección</button>
-                                </div>
-                            )}
-                        </div>
-                    )}
+        function TabHistoria({ role, gameState }) {
+            return (
+                <div className="text-black space-y-6">
+                    <h2 className="text-3xl font-bold mb-6 border-b border-black pb-2 typewriter">EL ASESINATO DE LORD HARRINGTON</h2>
+                    
+                    <div className="handwriting text-lg leading-relaxed space-y-4">
+                        <p><strong>12 de Noviembre, 23:14h.</strong> Lluvia intensa. Arthur Harrington, aristócrata y coleccionista de antigüedades, es hallado muerto en su despacho privado por el servicio.</p>
+                        <p>La puerta estaba cerrada por dentro. No hay arma del crimen a la vista. Solo un vaso de whisky volcado, una mancha de sangre en la alfombra persa y el olor a tabaco negro flotando en el aire.</p>
+                    </div>
 
-                    {gameState.level === 3 && (
-                        <div>
-                            <h2 className="text-xl mb-4 font-bold text-white">PROTOCOLO 3: PURGA DE SISTEMA DUAL</h2>
-                            <div className="bg-gray-900 p-4 border border-gray-700 text-center">
-                                <p className="mb-4">Para purgar el sistema de manera segura y evitar un volcado de memoria, ambos operativos deben autorizar la operación a la vez.</p>
-                                <p className="text-sm text-gray-400 mb-6">Sincronicen sus acciones e inicien la purga.</p>
-                                
-                                <button 
-                                    className={`cyber-btn w-full py-4 text-xl ${((role === 'agente' && gameState.agentData === 'ready') || (role === 'analista' && gameState.analystData === 'ready')) ? 'bg-green-600 text-black border-green-600' : ''}`}
-                                    onClick={activateSync}
-                                >
-                                    {((role === 'agente' && gameState.agentData === 'ready') || (role === 'analista' && gameState.analystData === 'ready')) ? 'AUTORIZACIÓN ENVIADA...' : 'AUTORIZAR PURGA DUAL'}
-                                </button>
+                    <div className="mt-8 p-6 bg-white border border-gray-300 shadow-md transform rotate-1">
+                        <h3 className="font-bold typewriter text-xl mb-4 border-b pb-2">OBJETIVO INICIAL</h3>
+                        <p className="typewriter text-sm mb-4">
+                            <strong>Detective:</strong> Estás físicamente en la sala. Busca pistas, lee las notas que dejó la víctima y describe lo que ves. Tu objetivo es encontrar al asesino.<br/><br/>
+                            <strong>Archivo:</strong> Tienes los informes policiales, historiales y perfiles. Escucha las descripciones del Detective y cruza los datos con tus documentos para darle respuestas.
+                        </p>
+                    </div>
+                </div>
+            );
+        }
 
-                                <div className="mt-6 flex justify-between px-2 md:px-8 text-sm font-bold">
-                                    <span className={gameState.agentData === 'ready' ? 'text-green-500' : 'text-red-500'}>
-                                        AGENTE: {gameState.agentData === 'ready' ? 'LISTO' : 'ESPERANDO'}
-                                    </span>
-                                    <span className={gameState.analystData === 'ready' ? 'text-green-500' : 'text-red-500'}>
-                                        ANALISTA: {gameState.analystData === 'ready' ? 'LISTO' : 'ESPERANDO'}
-                                    </span>
+        /* --- VISTAS DEL DETECTIVE (JUGADOR 1) --- */
+        function TabEscena({ gameState, updateState }) {
+            const [safeCode, setSafeCode] = useState("");
+            const [diaryCode, setDiaryCode] = useState("");
+            
+            const unlockSafe = () => {
+                if (safeCode.toUpperCase() === "LIRIO") {
+                    updateState({ safeUnlocked: true, chapter: 2 });
+                }
+            };
+
+            const unlockDiary = () => {
+                if (diaryCode === "4091") {
+                    updateState({ diaryUnlocked: true, chapter: 3 });
+                }
+            };
+
+            return (
+                <div className="text-black space-y-8">
+                    
+                    {gameState.chapter === 1 && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h2 className="text-2xl font-bold typewriter">EL DESPACHO CERRADO</h2>
+                            <p className="handwriting text-lg">El cuerpo de Harrington yace en el suelo. Detrás de su escritorio de roble, un cuadro ha sido movido, revelando una <strong>caja fuerte mecánica</strong> encastrada en la pared.</p>
+                            
+                            <div className="flex flex-wrap gap-6">
+                                <div className="polaroid">
+                                    <div className="polaroid-img">FOTO: NOTA ENSANGRENTADA</div>
+                                    <p className="mt-2 text-center handwriting text-sm font-bold text-red-800">"El año de la siembra..."</p>
+                                </div>
+                                <div className="flex-1 min-w-[250px] p-4 bg-[#d9c8b7] border border-gray-400">
+                                    <p className="typewriter text-sm mb-4">La víctima apretaba un trozo de papel en su mano. Dice: <em>"Mi tesoro está protegido por la flor que planté en el invernadero el año en que conocí a mi esposa".</em></p>
+                                    <p className="typewriter text-xs text-gray-600 mb-4">Pide al Archivo que revise el informe forense o biográfico de la víctima para averiguar qué flor plantó y cuándo.</p>
+                                    
+                                    <label className="block typewriter font-bold text-sm">CÓDIGO ALFABÉTICO DE LA CAJA (5 LETRAS):</label>
+                                    <div className="flex mt-2 gap-2">
+                                        <input type="text" className="input-noir uppercase" maxLength="5" value={safeCode} onChange={e => setSafeCode(e.target.value)} placeholder="_ _ _ _ _" />
+                                        <button className="btn-noir" onClick={unlockSafe}>GIRAR</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {gameState.level === 4 && (
-                        <div className="text-center py-8">
-                            <h2 className="text-4xl font-bold text-blue-400 mb-4 animate-pulse">AMENAZA NEUTRALIZADA</h2>
-                            <p className="text-xl mb-2">Red de Neo-Terrassa asegurada y limpia.</p>
-                            <button className="cyber-btn mt-8" onClick={() => updateStateAndSync({ level: 1, agentData: "", analystData: "" })}>
-                                Reiniciar Simulación
-                            </button>
+                    {gameState.chapter === 2 && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h2 className="text-2xl font-bold typewriter">EL LIBRO DE CONTABILIDAD</h2>
+                            <p className="handwriting text-lg">La caja fuerte hace 'clic' y se abre. Dentro no hay joyas, solo un pequeño diario de cuero negro con un candado numérico de 4 dígitos. Junto a él, un billete de tren usado.</p>
+                            
+                            <div className="flex flex-wrap gap-6">
+                                <div className="polaroid">
+                                    <div className="polaroid-img">FOTO: BILLETE TREN</div>
+                                    <p className="mt-2 text-center handwriting text-sm font-bold">Destino: SILVERWOOD<br/>Hora: 22:15h</p>
+                                </div>
+                                <div className="flex-1 min-w-[250px] p-4 bg-[#d9c8b7] border border-gray-400">
+                                    <p className="typewriter text-sm mb-4">Hay una nota escrita en el reverso del billete de tren: <em>"El código es el número de placa del hombre al que pagué para que desapareciera anoche."</em></p>
+                                    <p className="typewriter text-xs text-gray-600 mb-4">Dile al Archivo que revise la lista de sospechosos o coartadas. ¿Quién viajó a Silverwood a las 22:15h? Su número de placa/ID es la clave.</p>
+                                    
+                                    <label className="block typewriter font-bold text-sm">CANDADO NUMÉRICO (4 DÍGITOS):</label>
+                                    <div className="flex mt-2 gap-2">
+                                        <input type="text" className="input-noir uppercase" maxLength="4" value={diaryCode} onChange={e => setDiaryCode(e.target.value)} placeholder="0 0 0 0" />
+                                        <button className="btn-noir" onClick={unlockDiary}>ROMPER</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
+
+                    {gameState.chapter === 3 && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h2 className="text-2xl font-bold typewriter text-red-800">LA HABITACIÓN DEL PÁNICO</h2>
+                            <p className="handwriting text-lg">El diario se abre. La última página dice: <em>"Él está en la casa. Me he encerrado. Si alguien lee esto, bloquead la salida principal".</em></p>
+                            
+                            <div className="p-6 border-4 border-red-900 bg-red-50 relative overflow-hidden">
+                                <div className="blood-stain" style={{top: '-20px', left: '-20px', width: '100px', height: '100px'}}></div>
+                                <p className="typewriter font-bold text-lg mb-4">¡Escuchas pasos detrás de la estantería secreta!</p>
+                                <p className="typewriter text-sm mb-6">El asesino sigue aquí y va a escapar. Para sellar las puertas de la mansión, tú debes accionar la alarma física mientras el Archivo bloquea el perímetro desde la central. <strong>Hacedlo exactamente al mismo tiempo.</strong></p>
+                                
+                                <button 
+                                    className={`w-full py-4 text-xl font-bold typewriter border-2 ${gameState.detReady ? 'bg-red-900 text-white border-red-900' : 'bg-transparent text-red-900 border-red-900 hover:bg-red-900 hover:text-white'}`}
+                                    onClick={() => updateState({ detReady: true })}
+                                >
+                                    {gameState.detReady ? 'ALARMA ACCIONADA (ESPERANDO)' : 'TIRAR DE LA ALARMA'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameState.chapter === 4 && <VictoryScreen />}
+                </div>
+            );
+        }
+
+        /* --- VISTAS DEL ARCHIVO (JUGADOR 2) --- */
+        function TabBaseDatos({ gameState, updateState }) {
+            return (
+                <div className="text-black space-y-8">
+                    
+                    {gameState.chapter === 1 && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h2 className="text-2xl font-bold typewriter">PERFIL BIOGRÁFICO: HARRINGTON, A.</h2>
+                            <div className="p-6 bg-white border border-gray-300 shadow-md">
+                                <h3 className="font-bold border-b border-black pb-2 mb-4 typewriter">REGISTRO CIVIL Y BOTÁNICO</h3>
+                                <ul className="typewriter text-sm space-y-4">
+                                    <li><strong>1978:</strong> Hereda la fortuna familiar.</li>
+                                    <li><strong>1982:</strong> Conoce a su futura esposa, Lady Eleanor, en el jardín botánico de la ciudad. Según la biografía incautada, ese mismo año construyó un invernadero para cultivar su flor favorita: el <strong>LIRIO</strong> negro.</li>
+                                    <li><strong>1995:</strong> Lady Eleanor fallece en circunstancias misteriosas.</li>
+                                </ul>
+                                <p className="mt-6 text-xs text-gray-500 font-bold handwriting">Nota para el Analista: Si el Detective encuentra un rompecabezas relacionado con flores y años, esta información podría ser clave. Transmítela oralmente.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameState.chapter === 2 && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h2 className="text-2xl font-bold typewriter">REGISTROS DE TRÁNSITO Y SOSPECHOSOS</h2>
+                            <div className="p-6 bg-white border border-gray-300 shadow-md">
+                                <h3 className="font-bold border-b border-black pb-2 mb-4 typewriter">INTERROGATORIOS PRELIMINARES</h3>
+                                
+                                <div className="space-y-4 typewriter text-sm">
+                                    <div className="p-3 border border-gray-200 bg-gray-50">
+                                        <p className="font-bold">SOSPECHOSO 1: Julian (Mayordomo)</p>
+                                        <p>ID EMPLEADO: <span className="text-red-700 font-bold">1150</span></p>
+                                        <p>Coartada: Estaba en la cocina limpiando la plata. Hora confirmada: 22:00h a 23:30h.</p>
+                                    </div>
+                                    
+                                    <div className="p-3 border border-gray-200 bg-gray-50">
+                                        <p className="font-bold">SOSPECHOSO 2: Marcus (Chófer)</p>
+                                        <p>ID EMPLEADO: <span className="text-red-700 font-bold">4091</span></p>
+                                        <p>Coartada: Pidió la noche libre. Las cámaras de tráfico lo ubican subiendo al tren con dirección a <strong>SILVERWOOD</strong> exactamente a las <strong>22:15h</strong>.</p>
+                                    </div>
+                                </div>
+                                <p className="mt-6 text-xs text-gray-500 font-bold handwriting">El Detective te pedirá datos para relacionar una hora o destino con un ID. Dale el número correcto.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameState.chapter === 3 && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h2 className="text-2xl font-bold typewriter text-red-800">CÓDIGO 10-33: CIERRE DEL PERÍMETRO</h2>
+                            
+                            <div className="p-6 border-4 border-red-900 bg-red-50">
+                                <h3 className="font-bold border-b border-red-900 text-red-900 pb-2 mb-4 typewriter">ORDEN DE BLOQUEO TÁCTICO</h3>
+                                <p className="typewriter text-sm mb-6">El Detective informa que el asesino (Marcus) sigue dentro de la propiedad. Tienes acceso remoto a las puertas de seguridad de la mansión.</p>
+                                <p className="typewriter font-bold mb-6">Debes pulsar el botón de CIERRE en el mismo instante que el Detective acciona la alarma in situ para atraparlo entre dos puertas.</p>
+                                
+                                <button 
+                                    className={`w-full py-4 text-xl font-bold typewriter border-2 ${gameState.archReady ? 'bg-red-900 text-white border-red-900' : 'bg-transparent text-red-900 border-red-900 hover:bg-red-900 hover:text-white'}`}
+                                    onClick={() => updateState({ archReady: true })}
+                                >
+                                    {gameState.archReady ? 'CIERRE ENVIADO (ESPERANDO)' : 'ACTIVAR CIERRE DE EMERGENCIA'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameState.chapter === 4 && <VictoryScreen />}
+                </div>
+            );
+        }
+
+        function VictoryScreen() {
+            return (
+                <div className="text-center py-12 animate-fade-in border-4 border-black p-8 bg-white shadow-2xl transform rotate-1">
+                    <h2 className="text-4xl font-bold text-black mb-4 typewriter border-b-2 border-black pb-2">CASO CERRADO</h2>
+                    <div className="polaroid mx-auto my-6" style={{transform: 'rotate(2deg)'}}>
+                        <div className="polaroid-img bg-red-900 text-white font-bold">FOTO: MARCUS ARRESTADO</div>
+                    </div>
+                    <p className="text-xl text-black mb-2 handwriting">Las puertas se cerraron. Marcus fue atrapado intentando escapar con documentos incriminatorios de Lord Harrington.</p>
+                    <p className="text-gray-700 mt-4 max-w-md mx-auto typewriter text-sm">Excelente trabajo de equipo. La deducción en la escena y la inteligencia en el archivo han resuelto el asesinato del Lirio Negro.</p>
+                    
+                    <div className="mt-8 pt-4 border-t border-gray-400">
+                        <p className="typewriter font-bold text-2xl text-red-800 transform -rotate-12 w-fit mx-auto border-4 border-red-800 p-2">ARCHIVADO</p>
+                    </div>
                 </div>
             );
         }
